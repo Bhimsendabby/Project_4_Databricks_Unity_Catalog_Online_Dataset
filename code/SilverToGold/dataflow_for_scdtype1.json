@@ -1,0 +1,207 @@
+{
+    "name": "Dataflow4",
+    "properties": {
+        "type": "MappingDataFlow",
+        "typeProperties": {
+            "sources": [
+                {
+                    "linkedService": {
+                        "referenceName": "AzureDataLakeStorage1",
+                        "type": "LinkedServiceReference"
+                    },
+                    "name": "source1"
+                },
+                {
+                    "linkedService": {
+                        "referenceName": "serverless",
+                        "type": "LinkedServiceReference"
+                    },
+                    "name": "target"
+                }
+            ],
+            "sinks": [
+                {
+                    "linkedService": {
+                        "referenceName": "AzureDataLakeStorage1",
+                        "type": "LinkedServiceReference"
+                    },
+                    "name": "sink1"
+                },
+                {
+                    "linkedService": {
+                        "referenceName": "AzureDataLakeStorage1",
+                        "type": "LinkedServiceReference"
+                    },
+                    "name": "sink2"
+                }
+            ],
+            "transformations": [
+                {
+                    "name": "renaming"
+                },
+                {
+                    "name": "gettinghashvalue"
+                },
+                {
+                    "name": "lookup1"
+                },
+                {
+                    "name": "split1"
+                },
+                {
+                    "name": "derivedColumn1"
+                },
+                {
+                    "name": "derivedColumn2"
+                },
+                {
+                    "name": "alterRow1"
+                }
+            ],
+            "scriptLines": [
+                "source(output(",
+                "          auctionid as integer,",
+                "          bid as double,",
+                "          bidtime as double,",
+                "          bidder as string,",
+                "          bidderrate as short,",
+                "          openbid as double,",
+                "          price as double",
+                "     ),",
+                "     allowSchemaDrift: true,",
+                "     validateSchema: false,",
+                "     ignoreNoFilesFound: false,",
+                "     format: 'delta',",
+                "     fileSystem: 'silverlayer',",
+                "     folderPath: 'combinedfile') ~> source1",
+                "source(output(",
+                "          tgt_id1 as long,",
+                "          tgt_id2 as string,",
+                "          tgt_id3 as double,",
+                "          tgt_hashvalue as long",
+                "     ),",
+                "     allowSchemaDrift: true,",
+                "     validateSchema: false,",
+                "     format: 'query',",
+                "     store: 'synapseanalytics',",
+                "     query: 'select auctionid as tgt_id1, bidder as tgt_id2, bid as tgt_id3, hashvalue as tgt_hashvalue from dbo.scd',",
+                "     isolationLevel: 'READ_UNCOMMITTED',",
+                "     staged: false) ~> target",
+                "source1 select(mapColumn(",
+                "          each(match(1==1),",
+                "               concat(\"src_\",$$) = $$)",
+                "     ),",
+                "     skipDuplicateMapInputs: true,",
+                "     skipDuplicateMapOutputs: true) ~> renaming",
+                "renaming derive(src_hashvalue = crc32(concat(toString(src_auctionid),toString(src_bid),toString(src_bidtime),src_bidder,toString(src_bidderrate),toString(src_openbid),toString(src_price)))) ~> gettinghashvalue",
+                "gettinghashvalue, target lookup(src_auctionid == tgt_id1",
+                "     && src_bid == tgt_id3",
+                "     && src_bidder == tgt_id2,",
+                "     multiple: false,",
+                "     pickup: 'any',",
+                "     broadcast: 'auto')~> lookup1",
+                "lookup1 split(isNull(tgt_id1) && isNull(tgt_id2) && isNull(tgt_id3),",
+                "     ((src_auctionid == tgt_id1) && (src_bid == tgt_id3) && (src_bidder == tgt_id2) && (src_hashvalue!=tgt_hashvalue)),",
+                "     disjoint: false) ~> split1@(insert, update)",
+                "split1@insert derive(src_updatedBy = \"updated by dataflow\",",
+                "          src_updatedDate = currentTimestamp(),",
+                "          src_createdBy = \"created by dataflow\",",
+                "          src_createdDate = currentTimestamp()) ~> derivedColumn1",
+                "split1@update derive(updatedBy = \"updated by dataflow\",",
+                "          updatedDate = currentTimestamp()) ~> derivedColumn2",
+                "derivedColumn2 alterRow(updateIf(1==1)) ~> alterRow1",
+                "derivedColumn1 sink(allowSchemaDrift: true,",
+                "     validateSchema: false,",
+                "     input(",
+                "          auctionid as long,",
+                "          bid as double,",
+                "          bidtime as double,",
+                "          bidder as string,",
+                "          bidderrate as integer,",
+                "          openbid as double,",
+                "          price as double,",
+                "          updatedBy as string,",
+                "          updatedDate as timestamp,",
+                "          createdBy as string,",
+                "          createdDate as timestamp,",
+                "          hashvalue as long",
+                "     ),",
+                "     format: 'delta',",
+                "     fileSystem: 'goldlayer',",
+                "     folderPath: 'scd',",
+                "     mergeSchema: false,",
+                "     autoCompact: false,",
+                "     optimizedWrite: false,",
+                "     vacuum: 0,",
+                "     deletable: false,",
+                "     insertable: true,",
+                "     updateable: false,",
+                "     upsertable: false,",
+                "     umask: 0022,",
+                "     preCommands: [],",
+                "     postCommands: [],",
+                "     skipDuplicateMapInputs: true,",
+                "     skipDuplicateMapOutputs: true,",
+                "     mapColumn(",
+                "          auctionid = src_auctionid,",
+                "          bid = src_bid,",
+                "          bidtime = src_bidtime,",
+                "          bidder = src_bidder,",
+                "          bidderrate = src_bidderrate,",
+                "          openbid = src_openbid,",
+                "          price = src_price,",
+                "          updatedBy = src_updatedBy,",
+                "          updatedDate = src_updatedDate,",
+                "          createdBy = src_createdBy,",
+                "          createdDate = src_createdDate,",
+                "          hashvalue = src_hashvalue",
+                "     )) ~> sink1",
+                "alterRow1 sink(allowSchemaDrift: true,",
+                "     validateSchema: false,",
+                "     input(",
+                "          auctionid as long,",
+                "          bid as double,",
+                "          bidtime as double,",
+                "          bidder as string,",
+                "          bidderrate as integer,",
+                "          openbid as double,",
+                "          price as double,",
+                "          updatedBy as string,",
+                "          updatedDate as timestamp,",
+                "          createdBy as string,",
+                "          createdDate as timestamp,",
+                "          hashvalue as long",
+                "     ),",
+                "     format: 'delta',",
+                "     fileSystem: 'goldlayer',",
+                "     folderPath: 'scd',",
+                "     mergeSchema: false,",
+                "     autoCompact: false,",
+                "     optimizedWrite: false,",
+                "     vacuum: 0,",
+                "     deletable: false,",
+                "     insertable: false,",
+                "     updateable: true,",
+                "     upsertable: false,",
+                "     keys:['auctionid','bid','bidder'],",
+                "     umask: 0022,",
+                "     preCommands: [],",
+                "     postCommands: [],",
+                "     skipDuplicateMapInputs: true,",
+                "     skipDuplicateMapOutputs: true,",
+                "     mapColumn(",
+                "          auctionid = src_auctionid,",
+                "          bid = src_bid,",
+                "          bidtime = src_bidtime,",
+                "          bidder = src_bidder,",
+                "          bidderrate = src_bidderrate,",
+                "          openbid = src_openbid,",
+                "          price = src_price,",
+                "          updatedBy,",
+                "          updatedDate,",
+                "          hashvalue = src_hashvalue",
+                "     )) ~> sink2"
+            ]
+        }
+    }
+}
