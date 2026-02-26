@@ -1,88 +1,75 @@
-# Customer Account Analysis & Data Warehousing (Azure Synapse)
+# Multi-Year Data Analytics & Transformation (Databricks & Unity Catalog)
 
 ## 📌 Project Overview
-This project demonstrates an end-to-end Data Warehousing solution built on Azure Synapse Analytics. The goal is to provide a financial institution with a scalable architecture to consolidate customer transaction data, perform complex transformations, and deliver actionable insights through Power BI.
+This project demonstrates an end-to-end cloud data engineering solution using Azure Databricks and Unity Catalog, orchestrated by Azure Data Factory. The goal is to ingest multi-year (2019–2021) raw datasets from external GitHub repositories, apply a Medallion Architecture (Bronze, Silver, Gold), and perform advanced data transformations and visualizations.
 
-By leveraging the Medallion Architecture, we transition raw CSV data into a high-performance Delta Lake format and a Dedicated SQL Pool, ensuring data integrity with SCD Type 1 logic and optimized distribution strategies.
+By utilizing Unity Catalog, we ensure robust data governance through structured Catalogs, Schemas, and Volumes, while Databricks Notebooks handle complex data processing and aggregation using PySpark and Plotly.
 
 ## 🏗️ Architecture Diagram
 The pipeline follows a modern cloud data architecture:
-![onprem_to_adl_to_synapse_to_powerbi (2)](https://github.com/user-attachments/assets/ba95fc66-60fe-41ef-8f5d-22851cfdb938)
+![project_4](https://github.com/user-attachments/assets/617134b8-2a04-4f5e-ac5c-05da70749ec6)
 
-The pipeline follows a modern cloud data warehouse architecture:
 
-Source: 
+1. **Source:** Raw CSV files (2019, 2020, 2021) fetched via HTTP from GitHub.
 
-Ingestion & ETL: 
+2. **Ingestion & Storage:** Unity Catalog setup involving the creation of a dedicated Catalog, Schema, and Volume for raw file storage.
 
-Storage: 
+3. **Bronze:** Raw landing of files into Unity Catalog Volumes.
+   
+4. **Silver:** Data cleaning, renaming columns for suitability, and schema enforcement.
 
-Serverless Layer: 
+5. **Gold:** Final aggregated datasets ready for business reporting.
+   
+6. **Orchestration:** Azure Data Factory (ADF) pipelines to automate and schedule notebook execution.
+ 
+7. **Visualization:** Data insights generated using Plotly and Matplotlib within Databricks.
 
-Warehouse Layer: Dedicated SQL Pool for high-performance relational storage using Hash, Round-Robin, and Replicated distributions.
-
-Visualization: Power BI for customer insights.
-
-1. **Source:** Raw transaction data in CSV format uploaded to ADLS Gen2.
-
-2. **Ingestion & ETL:** Synapse Dataflows for Delta conversion and SCD Type 1 logic in Delta Format.
-
-3. **Storage:** Azure Data Lake Storage Gen2 (Bronze/Silver/Gold layers).
-
-4. **Serverless Layer:** Synapse Serverless SQL Pools for ad-hoc querying and Power BI views.
-
-5. **Warehouse Layer:**  Dedicated SQL Pool for high-performance relational storage using Hash, Round-Robin, and Replicated distributions.
-
-6. **Layers:** Bronze (Raw), Silver (Cleaned), and Gold (Business-ready).
-
-7. **Schema Management:** SCD Type 1 for dimensional integrity.
+8. **Metadata Management:** (Optional) Implementation of a dynamic metadata-driven loading process for the Silver layer.
 
 ## Repository Structure
 
 ```text
 ├── Code/
-│   ├── BronzeToSilver/                # Dataflows for converting raw CSV to Delta format
-│   └── SilverToGold/                  # Dataflow logic for Dimension table updates
+│   ├── BronzeToSilver/                # Logic to create Catalog, Schema, and Volumes
+│   └── SilverToGold/                  # Silver/Gold transformations & Aggregations and Generating visuals with Plotly/Matplotlib
 ├── Screenshots/
 │   ├── Architecture Diagram/          # Diagram for Architecture
-│   └── Dedicated_Pool/                # DDL for Hash, Round-Robin, and Replicated tables
 └── README.md                          # Project documentation
 ```
 
 
 
 ## Pipeline Workflow
-**Step 1:** Data Ingestion & Delta Conversion
-Raw financial data is ingested from ADLS Gen2 in CSV format. Using Synapse Dataflows, the data is transformed into Delta format to enable ACID transactions and time-travel capabilities within the Data Lake.
+**Step 1:** Governance Setup & Ingestion
+We begin by establishing a secure environment in Unity Catalog. A new Catalog and Schema are defined, and a Volume is created to serve as the landing zone. A Databricks notebook programmatically fetches three years of data (2019–2021) from GitHub and writes them into this volume with standardized column naming conventions.
 
 
-**Step 2:** SCD Type 1 Implementation
-To maintain the "Current State" of customer accounts:
+**Step 2:** Medallion Transformation
+Data is moved from the Volume into Delta Tables:
 
-Implemented SCD Type 1 using Synapse Dataflows to overwrite existing records with updated information.
+Cleaning: Removing nulls and formatting data types.
 
-The output is stored as a Delta Table in ADLS Gen2.
+Aggregation: Creating summary tables based on specific column dimensions to derive business value.
 
-The data is exposed via Serverless SQL Pools for immediate querying without needing to load a warehouse.
+Metadata (Optional): A Delta-based metadata table tracks the state of the pipeline, allowing for dynamic loading into the Silver layer.
 
-**Step 3:** Serverless SQL & Power BI Integration
-To minimize costs while maintaining performance:
+**Step 3:** Orchestration with ADF
+To automate the workflow, an Azure Data Factory pipeline is configured:
 
-Created SQL Views in the Serverless pool pointing to the Gold-layer Delta files.
+Linked Services connect ADF to the Databricks Workspace.
 
-Connected Power BI directly to these views to provide real-time customer insights.
+The Notebook Activity triggers the transformation logic.
 
-**Step 4:** Dedicated SQL Pool Optimization
-For heavy analytical workloads, a Dedicated SQL Pool was designed with specific distribution strategies.
-<img width="689" height="148" alt="image" src="https://github.com/user-attachments/assets/45c39a9a-b64d-43f3-aa9d-6ca4f532bc73" />
+Triggers/Schedules are applied to ensure data remains current without manual intervention.
 
-Note: We established PK/FK relationships and Clustered Columnstore Indexes for maximum query performance.
+**Step 4:** The final Gold layer is analyzed visually. By integrating the Plotly package (via matplotlib bridge or direct import), we generate interactive charts to identify trends across the 2019–2021 period.
+
 
 📊 Business Insights
- - Customer Segmentation: Analysis of transaction volumes per account type.
- - Data Integrity: Reliable "Single Version of Truth" maintained via SCD Type 1.
- - Performance: Sub-second query response times using Distributed SQL Pool architectures.
-   
+ - Temporal Trends: Comparative analysis of metrics across 2019, 2020, and 2021.
+ - Governance & Security: Centralized access control and data lineage via Unity Catalog.
+ - Scalability: The metadata-driven approach allows for adding new years of data by simply updating a configuration table.
+
 ## 👤 Author and Contributors
 Bhim Sen
 
